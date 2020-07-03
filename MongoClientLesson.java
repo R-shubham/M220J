@@ -1,13 +1,13 @@
-jpackage mflix.lessons;
+package mflix.lessons;
 
-import com.mongodb.ConnectionString;
-import com.mongodb.MongoClientSettings;
-import com.mongodb.ReadPreference;
+import com.mongodb.*;
 import com.mongodb.client.*;
+import com.mongodb.connection.ClusterSettings;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.junit.Assert;
 import org.junit.Test;
+import org.springframework.boot.autoconfigure.mongo.MongoClientSettingsBuilderCustomizer;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.ArrayList;
@@ -29,7 +29,8 @@ public class MongoClientLesson extends AbstractLesson {
 
   private MongoCollection<Document> collection;
 
-  private String uri = "<YOUR SRV STRING from the application.properties file>";
+//  private String uri = "mongodb://m220student:m220password@mflix-shard-00-01-3awsg.mongodb.net/mflix?retryWrites=true&w=majority";
+  private String uri = "mongodb://m220student:m220password@mflix-shard-00-01-3awsg.mongodb.net:27017,mflix-shard-00-00-3awsg.mongodb.net:27017,mflix-shard-00-02-3awsg.mongodb.net:27017/mflix?replicaSet=MFLIX-SHARD-0&retryWrites=true&w=majority&authSource=admin&&ssl=true&connectTimeoutMS=600000";
 
   private Document document;
 
@@ -54,9 +55,9 @@ public class MongoClientLesson extends AbstractLesson {
     mongodb uri.
      */
 
-    mongoClient = MongoClients.create(uri);
+     mongoClient = MongoClients.create(uri);
 
-    Assert.assertNotNull(mongoClient);
+     Assert.assertNotNull(mongoClient);
 
     MongoClientSettings settings;
 
@@ -73,24 +74,71 @@ public class MongoClientLesson extends AbstractLesson {
 
      */
 
-    ConnectionString connectionString = new ConnectionString(uri);
-    MongoClientSettings clientSettings =
-        MongoClientSettings.builder()
-            .applyConnectionString(connectionString)
-            .applicationName("mflix")
-            .applyToConnectionPoolSettings(
-                builder -> builder.maxWaitTime(1000, TimeUnit.MILLISECONDS))
-            .build();
-
-    mongoClient = MongoClients.create(clientSettings);
+    mongoClient = getMongoClient();
 
     Assert.assertNotNull(mongoClient);
   }
 
+  private MongoClient getMongoClient() {
+    ConnectionString connectionString = new ConnectionString(uri);
+    System.out.println("About to get client settings");
+    MongoClientSettings clientSettings = MongoClientSettings.builder()
+        .applyConnectionString(connectionString)
+        .applicationName("mflix")
+        .applyToConnectionPoolSettings(
+                (builder) -> {
+                  builder.maxWaitTime(60000, TimeUnit.MILLISECONDS);
+                  builder.maxConnectionIdleTime(60000, TimeUnit.MILLISECONDS);
+                }
+        )
+            .readPreference(ReadPreference.primaryPreferred())
+            .retryWrites(true)
+            .applyToSslSettings(builder -> builder.enabled(true))
+        .build();
+    System.out.println("about to create client");
+    return MongoClients.create(clientSettings);
+  }
+
+//  private MongoClient getClient() {
+//    List<ServerAddress> hosts = new ArrayList<>();
+//    Block<ClusterSettings.Builder> clusterBuilder = new B
+//    MongoClientSettings clientSettings = MongoClientSettings.builder()
+//            .applyToClusterSettings(ClusterSettings.builder().hosts(hosts))
+//            .applicationName("mflix")
+//            .build()
+//    return MongoClients.create(clientSettings);
+//    MongoClient mongoClient = new MongoClient(new
+//            MongoClientURI("mongodb+srv://wendulem:MYPASSWORD@cluster0
+//            ugj9q.mongodb.net/test?retryWrites=true"));
+
+//  }
+
+//    public MongoClient mongoClient() {
+//        List<ServerAddress> saList = new ArrayList<>();
+//        saList.add(new ServerAddress("mflix-shard-00-00-3awsg.mongodb.net", 27017));
+//        saList.add(new ServerAddress("mflix-shard-00-01-3awsg.mongodb.net", 27017));
+//        saList.add(new ServerAddress("mflix-shard-00-02-3awsg.mongodb.net", 27017));
+//
+//        char[] pwd =  "m220password".toCharArray();
+//        MongoCredential credential = MongoCredential.createCredential("m220student", "admin", pwd);
+//
+//        //set sslEnabled to true here
+//        MongoClientOptions options = MongoClientOptions.builder()
+//                .readPreference(ReadPreference.primaryPreferred())
+//                .retryWrites(true)
+//                .requiredReplicaSetName("Cluster0-shard-0")
+//                .maxConnectionIdleTime(6000)
+//                .sslEnabled(true)
+//                .build();
+//
+//        MongoClient mongoClient = new MongoClient(saList, credential, options);
+//        return mongoClient;
+//    }
+
   @Test
   public void MongoDatabaseInstance() {
 
-    mongoClient = MongoClients.create(uri);
+    mongoClient = getMongoClient();
 
     /*
     Now that we have a MongoClient instance, we can go ahead and connect
@@ -153,8 +201,9 @@ public class MongoClientLesson extends AbstractLesson {
     collection name from a MongoDatabase instance.
      */
 
-    mongoClient = MongoClients.create(uri);
-    database = mongoClient.getDatabase("mflix");
+//    mongoClient = MongoClients.create(uri);
+    mongoClient = getMongoClient();
+    database = mongoClient.getDatabase("sample_mflix");
     collection = database.getCollection("movies");
 
     /*
@@ -178,8 +227,10 @@ public class MongoClientLesson extends AbstractLesson {
 
   @Test
   public void DocumentInstance() {
-    mongoClient = MongoClients.create(uri);
+//    mongoClient = MongoClients.create(uri);
+    mongoClient = getMongoClient();
     database = mongoClient.getDatabase("test");
+//    database.runCommand({ setFeatureCompatibilityVersion: "3.4" } );
     collection = database.getCollection("users");
 
     /*
